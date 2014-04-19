@@ -10,10 +10,10 @@
  * P1.7 NC
  * P2.0 K2
  * P2.1 K1
- * P2.2 SRV1
+ * P2.2 SRV1 (JP7)
  * P2.3 BTN
  * P2.4 LED
- * P2.5 SRV2
+ * P2.5 SRV2 (JP6)
  * P2.6 LEFT_D
  * P2.7 RIGHT_D
  */
@@ -30,6 +30,7 @@
 #include <uart.h>
 #endif
 
+#if 0
 static void xdelay(void)
 {
 	volatile int i = 0xffff;
@@ -38,6 +39,7 @@ static void xdelay(void)
 	while(j--)
 		while(i--);
 }
+#endif
 
 void jack_init(void)
 {
@@ -59,7 +61,9 @@ typedef enum {
 	TRACK_STOP = 2, /* 1500 Hz, 667, 0x29b */
 	TRACK_FW_S = 3, /* 2000 Hz, 500, 0x1f4 */
 	TRACK_FW_F = 4, /* 2500 Hz, 400, 0x190 */
-	TRACK_NOISE = 5, /* Noise on line. Save previous direction */
+	TRACK_UP = 5, /* 3000 Hz, 333 */
+	TRACK_DOWN = 6, /* 3500 Hz, 286 */
+	TRACK_NOISE = 7, /* Noise on line. Save previous direction */
 } track_mode_t;
 
 static track_mode_t freq2track(unsigned short delta)
@@ -77,8 +81,12 @@ static track_mode_t freq2track(unsigned short delta)
 		return TRACK_STOP;
 	if (delta > ((500+400)>>1))
 		return TRACK_FW_S;
-	if (delta > (200>>1))
+	if (delta > ((400+333)>>1))
 		return TRACK_FW_F;
+	if (delta > ((333+286)>>1))
+		return TRACK_UP;
+	if (delta > (286>>1))
+		return TRACK_DOWN;
 	return TRACK_ERR;
 }
 
@@ -148,6 +156,8 @@ static void set_trackl(track_mode_t mode)
 		break;
 	case TRACK_ERR:
 	case TRACK_STOP:
+	case TRACK_UP:
+	case TRACK_DOWN:
 	default:
 		led_set(MLR, 0);
 		led_set(MLF, 0);
@@ -182,10 +192,58 @@ static void set_trackr(track_mode_t mode)
 		break;
 	case TRACK_ERR:
 	case TRACK_STOP:
+	case TRACK_UP:
+	case TRACK_DOWN:
 	default:
 		led_set(MRR, 0);
 		led_set(MRF, 0);
 	}
+}
+
+/* According to theory - valid pulse width is 1 .. 2 ms.
+ * Really measured for HK15138 range 0.6 .. 2.6 ms
+ */
+//#define SERVO_MIN 600
+#define SERVO_MIN 550
+//#define SERVO_MAX 2600
+#define SERVO_MAX 2200
+static void servo_init(void)
+{
+	/* Servo 1. JP7, P2.2.
+	 * Pin to mode TA1.1:
+	 * DIR - 1
+	 * SEL - 1
+	 * SEL2 - 0
+	 */
+	P2DIR |= BIT2;
+	P2SEL |= BIT2;
+
+	TA1CCTL1 = OUTMOD_7;			// CCR1 reset/set
+	TA1CCR1 = (SERVO_MIN + SERVO_MAX)>>1;					// CCR1 PWM duty cycle
+}
+
+static void servo_up(void)
+{
+	unsigned int val = TA1CCR1;
+	volatile int i = 0xfff;
+
+	while(i--);
+
+	if (++val > SERVO_MAX)
+		val = SERVO_MAX;
+	TA1CCR1 = val;
+}
+
+static void servo_down(void)
+{
+	unsigned int val = TA1CCR1;
+	volatile int i = 0xfff;
+
+	while(i--);
+
+	if (--val < SERVO_MIN)
+		val = SERVO_MIN;
+	TA1CCR1 = val;
 }
 
 void main(void)
@@ -199,6 +257,7 @@ void main(void)
 	default_state();
 	clock_init(); /* DCO, MCLK and SMCLK - 1MHz */
 	timer_init();
+	servo_init();
 	leds_init();
 	jack_init();
 	leds_hello(LED);
@@ -241,51 +300,11 @@ void main(void)
 		new_moder = freq2track(deltar);
 		set_trackl(new_model);
 		set_trackr(new_moder);
-#if 0
-		if (new_mode == track_l)
-			continue;
-		switch (track_l)
-		{
-		case TRACK_STOP:
-			led_set(MLF, 0);
-			break;
-		case TRACK_FW_S:
-			led_set(MLR, 0);
-			break;
-		case TRACK_FW_F:
-			led_set(MRF, 0);
-			break;
-		case TRACK_BW_S:
-			led_set(MRR, 0);
-			break;
-		case TRACK_BW_F:
-			led_set(TURBO, 0);
-			break;
-		}
+		if (new_model == TRACK_UP)
+			servo_up();
+		if (new_model == TRACK_DOWN)
+			servo_down();
 
-		switch (new_mode)
-		{
-		case TRACK_ERR:
-			led_toggle(LED);
-			break;
-		case TRACK_STOP:
-			led_set(MLF, 1);
-			break;
-		case TRACK_FW_S:
-			led_set(MLR, 1);
-			break;
-		case TRACK_FW_F:
-			led_set(MRF, 1);
-			break;
-		case TRACK_BW_S:
-			led_set(MRR, 1);
-			break;
-		case TRACK_BW_F:
-			led_set(TURBO, 1);
-			break;
-		}
-		track_l = new_mode;
-#endif
 	}
 #if 0
 	while (1)

@@ -12,7 +12,14 @@
  * Possible values are 1 8 12 16 */
 #define DCO_CLK 8
 
-/* TODO Add configurable dividers for MCLK and SMCLK */
+/* Divider for Master Clock. Possible values are 1, 2, 4, 8, */
+#define MCLK_DIV 1
+
+/* Divider for Sub Master Clock. Possible values are 1, 2, 4, 8, */
+#define SMCLK_DIV 1
+
+/* TODO configurable input for Master Clock (MCLK) and Sub Main Clock (SMLK)
+ * Currently both of them driven by DCO */
 
 /* ==========================================================================
  *			Timer section
@@ -34,12 +41,22 @@
 /* Possible modes "up to CCR0", "up", "up/down" */
 /* CONF_TIMER_A0_MODE_UP_TO_CCR0 CONF_TIMER_A0_MODE_UP CONF_TIMER_A0_MODE_UP_DOWN */
 #define CONF_TIMER_A0_MODE_UP
-
 #endif
+
+/* Timer B subsection */
+#define CONF_TIMER_A1_USE
+#ifdef CONF_TIMER_A1_USE
+#define CONF_TIMER_A1_SRC_SMCLK
+#define CONF_TIMER_A1_DIV 8
+#define CONF_TIMER_A1_MODE_UP_TO_CCR0
+#define CONF_TIMER_A1_CCR0_VAL 20000 /* 1 MHz (Timer A1), 20 ms - period */
+//#define CONF_TIMER_B_IV_IE /* timer B (AKA TA1) Interrupt Enabled */
+#endif
+
+
+
 //#define USE_ALARM
 #define CONF_TIMER_A_IV_IE /* timer A (AKA TA0) Interrupt Enabled */
-#define CONF_TIMER_B_IV_IE /* timer A (AKA TA1) Interrupt Enabled */
-
 /* UART section */
 //#define UART_BAUDRATE 300
 #define UART_BAUDRATE 9600

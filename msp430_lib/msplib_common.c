@@ -28,7 +28,30 @@ void clock_init(void)
 	BCSCTL1 = CALBC1_16MHZ;				//calibrate basic clock
 #endif
 
-	/* MCLK - 1MHz (MCLK = DCO/1)*/
-	/* SMCLK - 1MHz (SMCLK = DCO/1)*/
-	BCSCTL2 = SELM_0 | DIVM_0 | /*SELS |*/ DIVS_0; // .
+#if MCLK_DIV==1
+#define DIVM DIVM_0
+#elif MCLK_DIV==2
+#define DIVM DIVM_1
+#elif MCLK_DIV==4
+#define DIVM DIVM_2
+#elif MCLK_DIV==8
+#define DIVM DIVM_3
+#else
+#error Incorrect MCLK divider
+#endif
+
+#if SMCLK_DIV==1
+#define DIVS DIVS_0
+#elif SMCLK_DIV==2
+#define DIVS DIVS_1
+#elif SMCLK_DIV==4
+#define DIVS DIVS_2
+#elif SMCLK_DIV==8
+#define DIVS DIVS_3
+#else
+#error Incorrect SMCLK divider
+#endif
+
+	/* Source for MCLK and SMCLK - DCO */
+	BCSCTL2 = SELM_0 | DIVM | /*SELS |*/ DIVS;
 }
